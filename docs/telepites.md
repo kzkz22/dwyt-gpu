@@ -20,7 +20,7 @@ A nagybetűs részeket (`AI-ROUTER-IP`, `MODELLMAPPA`) cseréld a saját érték
 - NVIDIA GPU és meghajtó: `nvidia-smi` kiírja a kártyát.
 - Docker és az NVIDIA Container Toolkit. Próba: `docker run --rm --gpus all ubuntu nvidia-smi` kiírja a kártyát.
 - Hugging Face-fiók és olvasási token a beszélőfelismeréshez. A [pyannote/speaker-diarization-community-1](https://huggingface.co/pyannote/speaker-diarization-community-1) oldalán el kell fogadni a feltételeket.
-- Hely a modellmappában: egy 30B körüli GGUF 18–20 GB, a két Whisper-modell kb. 4,5 GB.
+- Hely a modellmappában (lásd A.1, „A modellmappa”): egy 30B körüli GGUF 18–20 GB, a két Whisper-modell kb. 4,5 GB.
 
 ## A. Linux + Docker
 
@@ -44,6 +44,16 @@ docker compose create            # csak létrehozza, nem indítja
 ```
 
 A konténerek indítása és leállítása az AI-router dolga, ne legyen automatikus indításuk. A `compose.yaml` ezért `restart: "no"`.
+
+**A modellmappa.** A modellek a gépen a `DWYT_MODELS_DIR` mappába kerülnek. Ez a fenti példában `/srv/dwyt-models`; ha nem adod meg, a `compose.yaml` is ezt használja. Válassz olyan helyet, ahol gyors lemez (NVMe) és elég szabad hely van, például `/mnt/nvme/dwyt-models`. A mappát a `.env` jegyzi meg a `compose.yaml` mellett. Mindkét konténer `/models`-ként látja, ugyanúgy, mint Unraidon:
+
+| A gépen | A konténerben | Mi van benne | Ki tölti fel |
+| --- | --- | --- | --- |
+| `DWYT_MODELS_DIR/gguf/` | `/models/gguf/` | az LLM-ek GGUF-fájljai | `dwyt-gpu download` |
+| `DWYT_MODELS_DIR/hf/` | `/models/hf/` | Whisper, igazító- és beszélőfelismerő modellek (Hugging Face-gyorsítótár) | `dwyt-gpu download`; ami hiányzik, azt a worker első használatkor maga tölti le |
+| `DWYT_MODELS_DIR/models.ini` | `/models/models.ini` | a llama-server presetjei | átmásolod az AI-routerről |
+
+A worker saját munkaadatai (a félbemaradt munkák folytatásához) külön Docker-kötetbe kerülnek (`dwyt-gpu_whisper-data`); ez kicsi.
 
 ### A.2 A modelleszköz
 
