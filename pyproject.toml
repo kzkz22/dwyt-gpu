@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dwyt-gpu"
+version = "0.1.0"
+description = "dwyt GPU host tools: model download and checks"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+dependencies = ["huggingface_hub>=0.25"]
+
+[project.optional-dependencies]
+test = ["pytest>=8", "ruff>=0.6", "fastapi>=0.115", "uvicorn>=0.30", "httpx>=0.27", "numpy>=1.26"]
+
+[project.scripts]
+dwyt-gpu = "dwyt_gpu.cli:main"
+
+[tool.setuptools]
+packages = ["dwyt_gpu"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

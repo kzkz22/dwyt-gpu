@@ -1,0 +1,31 @@
+name: test
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.13"]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - run: uv venv
+      - run: uv pip install -e ".[test]"
+      - run: uv run --no-sync ruff check --select F,E,W --exclude tests/fakes dwyt_gpu worker tests
+      - run: uv run --no-sync pytest -q
+      - run: docker compose -f compose.yaml config --quiet   # the compose file stays valid
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.11"
+      - run: uv venv
+      - run: uv pip install pip-audit pip
+      - run: uv run --no-sync pip-audit .   # the project's own dependencies

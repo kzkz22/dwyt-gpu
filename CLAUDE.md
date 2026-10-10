@@ -6,7 +6,23 @@ diarization, NDJSON streaming with heartbeats, CUDA failure → CPU retry), mode
 model-download command driven by the airouter's `models.yaml`. Started and stopped on demand by dwyt-airouter;
 its ports must only be reachable from the AI router (no auth of its own).
 
-Status: planning only. License: MIT.
+Status: round 2 implemented (worker port, compose file, `dwyt-gpu download|check`); not yet run on a real GPU host.
+License: MIT.
+
+## Layout
+
+| Path | Role |
+| --- | --- |
+| `worker/gpuworker/server.py` | Worker HTTP API: one job per streamed request (NDJSON + 10 s heartbeats), one job at a time |
+| `worker/gpuworker/job.py` | Child process per job; CUDA failure -> CPU retry with a warning |
+| `worker/gpuworker/asr.py` | WhisperX -> alignment -> diarization; ASR checkpoint keyed by audio SHA-256 + model + language |
+| `worker/Dockerfile` | `whisperx==3.8.6` pinned (signatures verified against it in the old system) |
+| `compose.yaml` | `dwyt-llama` (llama.cpp server-cuda, router mode, `/models/models.ini`) and `dwyt-whisper`; create only |
+| `dwyt_gpu/download.py` | `downloads.json` (written by `dwyt-airouter generate`) -> `<dir>/gguf`, `<dir>/hf/hub`; space check |
+| `dwyt_gpu/check.py` | Driver, Docker GPU access, containers, model folder |
+
+Worker messages that reach the user are Hungarian. Tests run the real worker with `tests/fakes` (torch,
+whisperx) first on PYTHONPATH; flag files switch fake behaviour (crash_once, gpu_fail_once, slow_once).
 
 ## Conventions
 

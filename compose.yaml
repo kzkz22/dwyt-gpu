@@ -1,0 +1,46 @@
+# dwyt GPU host: the two GPU containers. They are only CREATED here (docker compose create);
+# the AI router (dwyt-airouter, through llama-swap) starts and stops them, one at a time.
+#
+#   DWYT_MODELS_DIR  model folder on fast disk (NVMe): gguf/, hf/, models.ini   (default /srv/dwyt-models)
+#   DWYT_BIND        address the ports listen on; 127.0.0.1 when the AI router is on this machine.
+#                    Otherwise allow only the AI router in the firewall: the containers have no login.
+name: dwyt-gpu
+
+x-gpu: &gpu
+  restart: "no"
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: all
+            capabilities: [gpu]
+
+services:
+  llama:
+    <<: *gpu
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    container_name: dwyt-llama
+    ports: ["${DWYT_BIND:-0.0.0.0}:8001:8001"]
+    volumes:
+      - ${DWYT_MODELS_DIR:-/srv/dwyt-models}:/models
+    # Router mode: one server, the presets of models.ini (generated from models.yaml), one model loaded at a time.
+    command: >-
+      --host 0.0.0.0 --port 8001 --models-preset /models/models.ini --models-max 1
+      --jinja --flash-attn on --metrics
+
+  whisper:
+    <<: *gpu
+    build: ./worker
+    image: dwyt-whisper:local
+    container_name: dwyt-whisper
+    ports: ["${DWYT_BIND:-0.0.0.0}:8766:8766"]
+    env_file:
+      - path: whisper.env
+        required: false
+    volumes:
+      - ${DWYT_MODELS_DIR:-/srv/dwyt-models}:/models
+      - whisper-data:/data
+
+volumes:
+  whisper-data:
