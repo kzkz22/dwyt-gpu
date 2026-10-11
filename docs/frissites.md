@@ -33,7 +33,7 @@ Régi GGUF-fájlt a letöltő nem töröl. Ha már nem kell, töröld kézzel a 
 ## A modelleszköz
 
 ```bash
-uv tool upgrade dwyt-gpu
+uv tool install --force git+https://github.com/kzkz22/dwyt-gpu
 ```
 
 ## Visszaállás
