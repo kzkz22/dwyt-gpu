@@ -137,7 +137,7 @@ A letöltés megszakítás után újraindítva folytatódik. A meglévő fájlok
 ## Ellenőrzés
 
 ```bash
-dwyt-gpu check --dir $DWYT_MODELS_DIR --list /tmp/downloads.json
+dwyt-gpu check --dir $DWYT_MODELS_DIR --list /tmp/downloads.json   # a --list elhagyható, ha a downloads.json a modellmappában van
 ```
 
 Minden sor „rendben” legyen: GPU, Docker GPU-hozzáféréssel, a két konténer (leállítva), a `models.ini` és a GGUF-fájlok. A teljes út (az AI-router indítja a konténert, a modell betölt) az AI-router leírásának végén ellenőrizhető.

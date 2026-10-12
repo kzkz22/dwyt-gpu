@@ -50,12 +50,19 @@ def run(models_dir: str | None, list_path: str | None, say=print) -> int:
             token, source = download.find_token(root)
             say(f"         Hugging Face-token: {source}" if token else
                 "         Hugging Face-token: nincs (nem kötelező; dwyt-gpu token --dir MODELLMAPPA)")
-            if list_path:
+            if not list_path and (root / "downloads.json").is_file():
+                list_path = str(root / "downloads.json")  # where the docs put it
+            if not list_path:
+                say("         a modellfájlok ellenőrzése kimaradt (--list downloads.json)")
+            else:
                 data = download.load_list(list_path)
                 for entry in data.get("files", []):
                     folder = download.file_folder(data, entry)
                     for part in download.expand_parts(entry["path"]):
                         report((root / folder / part).is_file(), f"GGUF: {folder.removeprefix('gguf/')}/{part}"
                                if folder != "gguf" else f"GGUF: {part}")
+    else:
+        say("kihagyva  modellmappa, models.ini, Hugging Face-token, modellfájlok: add meg a mappát "
+            "(--dir MAPPA vagy DWYT_MODELS_DIR)")
     say("Minden rendben." if ok else "Van javítanivaló (lásd fent).")
     return 0 if ok else 1
