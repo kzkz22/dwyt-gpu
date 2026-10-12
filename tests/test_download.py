@@ -15,7 +15,9 @@ class FakeHub:
 
     def __init__(self, monkeypatch):
         self.files = {"org/Big-GGUF": {"Big-00001-of-00002.gguf": 30 * MB, "Big-00002-of-00002.gguf": 20 * MB},
-                      "org/Small-GGUF": {"small.gguf": 5 * MB}}
+                      "org/Small-GGUF": {"small.gguf": 5 * MB},
+                      "org/A-GGUF": {"a.gguf": 4 * MB, "mmproj-F16.gguf": 1 * MB},
+                      "org/B-GGUF": {"b.gguf": 4 * MB, "mmproj-F16.gguf": 2 * MB}}
         self.snapshots = {"Systran/faster-whisper-large-v3": 3 * MB, "pyannote/gated": 1 * MB}
         self.downloaded: list[str] = []
         self.cached: set[str] = set()
@@ -96,7 +98,7 @@ def test_gated_model_needs_a_token(tmp_path, monkeypatch, capsys):
                      "--dry-run"]) == 0
 
 
-@pytest.mark.parametrize("bad", [{"version": 2},
+@pytest.mark.parametrize("bad", [{"version": 3},
                                  {"version": 1, "files": [{"repo": "a/b", "path": "../etc/passwd"}]},
                                  {"version": 1, "files": [{"repo": "../x", "path": "a.gguf"}]}])
 def test_malformed_lists_are_refused(tmp_path, bad):
@@ -104,3 +106,24 @@ def test_malformed_lists_are_refused(tmp_path, bad):
     path.write_text(json.dumps(bad))
     with pytest.raises(download.DownloadError):
         download.load_list(path)
+
+
+def test_version_2_keeps_same_named_files_of_two_repos_apart(tmp_path, monkeypatch, capsys):
+    hub = FakeHub(monkeypatch)
+    lst = tmp_path / "downloads.json"
+    lst.write_text(json.dumps({"version": 2, "files": [
+        {"repo": "org/A-GGUF", "path": "a.gguf"}, {"repo": "org/A-GGUF", "path": "mmproj-F16.gguf"},
+        {"repo": "org/B-GGUF", "path": "b.gguf"}, {"repo": "org/B-GGUF", "path": "mmproj-F16.gguf"}],
+        "snapshots": []}))
+    models = tmp_path / "models"
+    assert cli.main(["download", str(lst), "--dir", str(models)]) == 0
+    assert hub.downloaded == ["org/A-GGUF/a.gguf", "org/A-GGUF/mmproj-F16.gguf",
+                              "org/B-GGUF/b.gguf", "org/B-GGUF/mmproj-F16.gguf"]
+    for repo in ("A", "B"):
+        assert (models / "gguf" / "org" / f"{repo}-GGUF" / "mmproj-F16.gguf").is_file()
+    assert not (models / "gguf" / "mmproj-F16.gguf").exists()
+    # the second repo's projector is not taken for present because the first one is there
+    (models / "gguf" / "org" / "A-GGUF" / "mmproj-F16.gguf").write_bytes(b"\0" * MB)
+    items = download.plan(download.load_list(lst), models, None)
+    present = {f"{i.repo}/{i.path}" for i in items if i.present}
+    assert present == {"org/A-GGUF/mmproj-F16.gguf"}

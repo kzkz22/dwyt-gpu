@@ -50,7 +50,9 @@ def run(models_dir: str | None, list_path: str | None, say=print) -> int:
             if list_path:
                 data = download.load_list(list_path)
                 for entry in data.get("files", []):
+                    folder = download.file_folder(data, entry)
                     for part in download.expand_parts(entry["path"]):
-                        report((root / "gguf" / part).is_file(), f"GGUF: {part}")
+                        report((root / folder / part).is_file(), f"GGUF: {folder.removeprefix('gguf/')}/{part}"
+                               if folder != "gguf" else f"GGUF: {part}")
     say("Minden rendben." if ok else "Van javítanivaló (lásd fent).")
     return 0 if ok else 1

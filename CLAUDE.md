@@ -18,7 +18,7 @@ License: MIT.
 | `worker/gpuworker/asr.py` | WhisperX -> alignment -> diarization; ASR checkpoint keyed by audio SHA-256 + model + language |
 | `worker/Dockerfile` | `whisperx==3.8.6` pinned (signatures verified against it in the old system) |
 | `compose.yaml` | `dwyt-llama` (llama.cpp server-cuda, router mode, `/models/models.ini`) and `dwyt-whisper`; create only |
-| `dwyt_gpu/download.py` | `downloads.json` (written by `dwyt-airouter generate`) -> `<dir>/gguf`, `<dir>/hf/hub`; space check |
+| `dwyt_gpu/download.py` | `downloads.json` (written by `dwyt-airouter generate`) -> `<dir>/gguf/<owner>/<repo>/` (version 2; version 1: flat `<dir>/gguf`), `<dir>/hf/hub`; space check |
 | `dwyt_gpu/check.py` | Driver, Docker GPU access, containers, model folder |
 
 Worker messages that reach the user are Hungarian. Tests run the real worker with `tests/fakes` (torch,

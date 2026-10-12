@@ -30,6 +30,10 @@ Unraidon a Docker fülön **Check for Updates**, utána **Apply**, majd leállí
 
 Régi GGUF-fájlt a letöltő nem töröl. Ha már nem kell, töröld kézzel a `gguf/` mappából.
 
+### Átállás a repónkénti mappákra (dwyt-gpu 0.2, dwyt-airouter 0.2)
+
+A 2-es letöltési lista minden fájlt a `gguf/<szervezet>/<repó>/` mappába tesz (a régi 1-es lista a `gguf/`-be). Előbb ezt a modelleszközt frissítsd (lent), utána az AI-routert. A régi helyen lévő fájlokat (közvetlenül a `gguf/` alatt) a letöltő nem használja: ha ugyanabból a repóból valók, áthelyezheted őket (`mkdir -p gguf/unsloth/REPÓ && mv gguf/FÁJL.gguf gguf/unsloth/REPÓ/`), egyébként töröld őket. A `dwyt-gpu check --dir MODELLMAPPA --list downloads.json` megmutatja, mi hiányzik.
+
 ## A modelleszköz
 
 ```bash

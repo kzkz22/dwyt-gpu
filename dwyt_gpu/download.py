@@ -2,11 +2,13 @@
 
 `dwyt-airouter generate` writes downloads.json from models.yaml (one file describes every model):
 
-  {"version": 1,
+  {"version": 2,
    "files":     [{"repo": "unsloth/Some-GGUF", "path": "Some-Q4_K_M.gguf"}],
    "snapshots": [{"repo": "Systran/faster-whisper-large-v3", "gated": false}]}
 
-files     -> <models_dir>/gguf/<path>      (llama-server; models.ini points here as /models/gguf/...)
+files     -> <models_dir>/gguf/<owner>/<repo>/<path>   (llama-server; models.ini points to /models/gguf/...)
+             Version 1 lists (older dwyt-airouter) put them straight into gguf/<path>; two repos often hold
+             files of the same name (mmproj-F16.gguf), which is why version 2 keeps them apart.
 snapshots -> <models_dir>/hf/hub           (Hugging Face cache: the Whisper container has HF_HOME=/models/hf)
 
 A split GGUF (`...-00001-of-00003.gguf`) brings all of its parts. Files already present with the
@@ -26,6 +28,12 @@ from huggingface_hub.utils import GatedRepoError, HfHubHTTPError, LocalEntryNotF
 
 SPLIT = re.compile(r"^(?P<stem>.*)-(?P<part>\d{5})-of-(?P<total>\d{5})\.gguf$")
 MARGIN = 2 * 1024 ** 3  # keep this much free after the download
+VERSIONS = (1, 2)
+
+
+def file_folder(data: dict, entry: dict) -> str:
+    """Where a listed file goes, relative to the models dir: gguf/ (version 1) or gguf/<owner>/<repo>."""
+    return "gguf" if data.get("version") == 1 else f"gguf/{entry['repo']}"
 
 
 class DownloadError(Exception):
@@ -37,6 +45,7 @@ class Item:
     kind: str           # "file" or "snapshot"
     repo: str
     path: str = ""      # for files
+    folder: str = ""    # for files: the folder under the models dir the path is relative to
     size: int = 0       # bytes still to download
     present: bool = False
     gated: bool = False
@@ -50,9 +59,9 @@ def load_list(path: str | Path) -> dict:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
         raise DownloadError(f"A letöltési lista nem olvasható ({path}): {exc}") from exc
-    if not isinstance(data, dict) or data.get("version") != 1:
-        raise DownloadError("A letöltési lista nem ismert formátumú (version 1 kell); "
-                            "készítsd újra: dwyt-airouter generate")
+    if not isinstance(data, dict) or data.get("version") not in VERSIONS:
+        raise DownloadError("A letöltési lista nem ismert formátumú (version 1 vagy 2 kell); frissítsd a "
+                            "dwyt-gpu-t, vagy készítsd újra: dwyt-airouter generate")
     for entry in data.get("files", []) + data.get("snapshots", []):
         repo = str(entry.get("repo", ""))
         if repo.count("/") != 1 or ".." in repo:
@@ -77,7 +86,9 @@ def plan(data: dict, models_dir: Path, token: str | None) -> list[Item]:
     api = huggingface_hub.HfApi(token=token)
     items: list[Item] = []
     by_repo: dict[str, list[str]] = {}
+    folders: dict[str, str] = {}
     for entry in data.get("files", []):
+        folders[entry["repo"]] = file_folder(data, entry)
         for part in expand_parts(entry["path"]):
             by_repo.setdefault(entry["repo"], []).append(part)
     for repo, paths in by_repo.items():
@@ -90,9 +101,9 @@ def plan(data: dict, models_dir: Path, token: str | None) -> list[Item]:
             if info is None:
                 raise DownloadError(f"A {repo} repóban nincs ilyen fájl: {p}")
             size = int(getattr(info, "size", 0) or 0)
-            local = models_dir / "gguf" / p
+            local = models_dir / folders[repo] / p
             present = local.is_file() and (not size or local.stat().st_size == size)
-            items.append(Item("file", repo, p, 0 if present else size, present))
+            items.append(Item("file", repo, p, folders[repo], 0 if present else size, present))
     for entry in data.get("snapshots", []):
         repo, gated = entry["repo"], bool(entry.get("gated"))
         try:
@@ -142,7 +153,8 @@ def download(items: list[Item], models_dir: Path, token: str | None, say=print) 
         say(f"  letöltés: {item.label()} ({human(item.size)})")
         try:
             if item.kind == "file":
-                huggingface_hub.hf_hub_download(item.repo, item.path, local_dir=str(models_dir / "gguf"), token=token)
+                huggingface_hub.hf_hub_download(item.repo, item.path, local_dir=str(models_dir / item.folder),
+                                                token=token)
             else:
                 huggingface_hub.snapshot_download(item.repo, cache_dir=str(models_dir / "hf" / "hub"), token=token)
         except (RepositoryNotFoundError, GatedRepoError, HfHubHTTPError, OSError) as exc:
