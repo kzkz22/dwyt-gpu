@@ -125,12 +125,14 @@ A modellek listáját az AI-router `models.yaml`-ja tartalmazza. Belőle a `dwyt
 scp AI-ROUTER-IP:/etc/dwyt-airouter/generated/models.ini  $DWYT_MODELS_DIR/
 scp AI-ROUTER-IP:/etc/dwyt-airouter/generated/downloads.json /tmp/
 
-export HF_TOKEN=hf_...                     # a beszélőfelismerő modellhez
+dwyt-gpu token --dir $DWYT_MODELS_DIR       # egyszer: a Hugging Face-token (nem látszik), a modellmappába
 dwyt-gpu download /tmp/downloads.json --dir $DWYT_MODELS_DIR --dry-run   # mi hiányzik, mennyi hely kell
 dwyt-gpu download /tmp/downloads.json --dir $DWYT_MODELS_DIR
 ```
 
 A letöltés megszakítás után újraindítva folytatódik. A meglévő fájlokat kihagyja.
+
+**A Hugging Face-token.** A beszélőfelismerő modell letöltéséhez kell, és vele a többi letöltés is gyorsabb (nélküle a Hugging Face „unauthenticated requests” figyelmeztetést ír). A `dwyt-gpu token` ellenőrzi a Hugging Face-nél, és a modellmappa `hf/token` fájljába menti, amelyet csak a root olvashat. A modellmappa a tömbön van, így Unraidon az újraindítás után is megmarad. Ha a `HF_TOKEN` környezeti változó be van állítva, az elsőbbséget kap. Törlés: `dwyt-gpu token --dir $DWYT_MODELS_DIR --remove`.
 
 ## Ellenőrzés
 

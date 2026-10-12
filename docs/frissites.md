@@ -40,6 +40,7 @@ A 2-es letöltési lista minden fájlt a `gguf/<szervezet>/<repó>/` mappába te
 uv tool install --force git+https://github.com/kzkz22/dwyt-gpu
 export PATH="/root/.local/bin:$PATH"   # ha az uv szerint a /root/.local/bin nincs a PATH-on (Unraidon minden újraindítás után)
 dwyt-gpu --version
+dwyt-gpu token --dir MODELLMAPPA       # 0.2.1-től: egyszer elmenti a Hugging Face-tokent a modellmappába
 ```
 
 ## Visszaállás

@@ -47,6 +47,9 @@ def run(models_dir: str | None, list_path: str | None, say=print) -> int:
             report((root / "models.ini").is_file(), "models.ini a modellmappában"
                    + ("" if (root / "models.ini").is_file() else " (dwyt-airouter generate készíti; másold ide)"))
             say(f"         szabad hely: {download.human(shutil.disk_usage(root).free)}")
+            token, source = download.find_token(root)
+            say(f"         Hugging Face-token: {source}" if token else
+                "         Hugging Face-token: nincs (nem kötelező; dwyt-gpu token --dir MODELLMAPPA)")
             if list_path:
                 data = download.load_list(list_path)
                 for entry in data.get("files", []):

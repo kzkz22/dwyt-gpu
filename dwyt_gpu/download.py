@@ -31,6 +31,45 @@ MARGIN = 2 * 1024 ** 3  # keep this much free after the download
 VERSIONS = (1, 2)
 
 
+TOKEN_FILE = "hf/token"  # in the models dir: survives an Unraid reboot; the Whisper container (HF_HOME=/models/hf)
+                         # would find it there too, the same place `hf auth login` writes with that HF_HOME
+
+
+def find_token(models_dir: Path) -> tuple[str | None, str]:
+    """The Hugging Face token and where it came from: HF_TOKEN first, then the models dir's file."""
+    env = os.environ.get("HF_TOKEN", "").strip()
+    if env:
+        return env, "HF_TOKEN"
+    path = models_dir / TOKEN_FILE
+    try:
+        token = path.read_text(encoding="utf-8").strip()
+    except OSError:
+        return None, ""
+    return (token, str(path)) if token else (None, "")
+
+
+def save_token(models_dir: Path, token: str) -> Path:
+    """Store the token readable by root only."""
+    path = models_dir / TOKEN_FILE
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(token.strip() + "\n")
+    os.chmod(path, 0o600)
+    return path
+
+
+def verify_token(token: str) -> str:
+    """The account name the token belongs to; DownloadError when Hugging Face refuses it."""
+    try:
+        info = huggingface_hub.whoami(token=token)
+    except HfHubHTTPError as exc:
+        raise DownloadError(f"A Hugging Face nem fogadta el a tokent: {_reason(exc)}") from exc
+    except OSError as exc:
+        raise DownloadError(f"A Hugging Face nem érhető el: {exc}") from exc
+    return str(info.get("name") or "?")
+
+
 def file_folder(data: dict, entry: dict) -> str:
     """Where a listed file goes, relative to the models dir: gguf/ (version 1) or gguf/<owner>/<repo>."""
     return "gguf" if data.get("version") == 1 else f"gguf/{entry['repo']}"
@@ -166,7 +205,9 @@ def run(list_path: str, models_dir: str, dry_run: bool = False, say=print) -> in
     data = load_list(list_path)
     root = Path(models_dir)
     root.mkdir(parents=True, exist_ok=True)
-    token = os.environ.get("HF_TOKEN") or None
+    token, source = find_token(root)
+    say(f"Hugging Face-token: {source}" if token else
+        "Hugging Face-token nélkül (lassabb lehet; beállítás: dwyt-gpu token --dir MODELLMAPPA)")
     items = plan(data, root, token)
     need, free = check_space(items, root)
     missing = [i for i in items if not i.present]

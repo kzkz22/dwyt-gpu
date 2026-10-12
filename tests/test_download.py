@@ -127,3 +127,44 @@ def test_version_2_keeps_same_named_files_of_two_repos_apart(tmp_path, monkeypat
     items = download.plan(download.load_list(lst), models, None)
     present = {f"{i.repo}/{i.path}" for i in items if i.present}
     assert present == {"org/A-GGUF/mmproj-F16.gguf"}
+
+
+def test_token_from_the_models_dir_saved_root_only(tmp_path, monkeypatch, capsys):
+    import os
+    import stat
+    hub = FakeHub(monkeypatch)
+    seen = []
+    monkeypatch.setattr(huggingface_hub, "whoami", lambda token=None: seen.append(token) or {"name": "zoltan"})
+    monkeypatch.delenv("HF_TOKEN", raising=False)
+    models = tmp_path / "models"
+    assert download.find_token(models) == (None, "")
+    monkeypatch.setattr(cli.getpass, "getpass", lambda prompt: "  hf_secret  ")
+    assert cli.main(["token", "--dir", str(models)]) == 0
+    path = models / "hf" / "token"
+    assert path.read_text() == "hf_secret\n" and seen == ["hf_secret"]
+    if os.name == "posix":
+        assert stat.S_IMODE(path.stat().st_mode) == 0o600
+    out = capsys.readouterr().out
+    assert "hf_secret" not in out and "zoltan" in out
+    assert download.find_token(models) == ("hf_secret", str(path))
+    monkeypatch.setenv("HF_TOKEN", "hf_env")  # the environment wins
+    assert download.find_token(models)[0] == "hf_env"
+    monkeypatch.delenv("HF_TOKEN")
+    # the download uses the stored token (a gated repo needs one)
+    assert cli.main(["download", str(write_list(tmp_path, gated=True)), "--dir", str(models), "--dry-run"]) == 0
+    assert "Hugging Face-token: " + str(path) in capsys.readouterr().out
+    assert cli.main(["token", "--dir", str(models), "--remove"]) == 0 and not path.exists()
+    assert hub is not None
+
+
+def test_a_refused_token_is_not_saved(tmp_path, monkeypatch, capsys):
+    from huggingface_hub.utils import HfHubHTTPError
+
+    def refuse(token=None):
+        err = HfHubHTTPError.__new__(HfHubHTTPError)  # its constructor differs between hub versions
+        Exception.__init__(err, "401 Unauthorized")
+        raise err
+    monkeypatch.setattr(huggingface_hub, "whoami", refuse)
+    monkeypatch.setattr(cli.getpass, "getpass", lambda prompt: "hf_bad")
+    assert cli.main(["token", "--dir", str(tmp_path)]) == 1
+    assert not (tmp_path / "hf" / "token").exists() and "nem fogadta el" in capsys.readouterr().err
