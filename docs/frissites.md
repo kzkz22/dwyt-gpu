@@ -38,6 +38,8 @@ A 2-es letöltési lista minden fájlt a `gguf/<szervezet>/<repó>/` mappába te
 
 ```bash
 uv tool install --force git+https://github.com/kzkz22/dwyt-gpu
+source /root/.local/bin/env    # ha az uv szerint a /root/.local/bin nincs a PATH-on (Unraidon minden újraindítás után)
+dwyt-gpu --version
 ```
 
 ## Visszaállás
